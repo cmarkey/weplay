@@ -170,7 +170,7 @@ class tracks():
             self.best_case = adj_pass_value.max() 
             loc_pass_value = self.score*self.all_ctrl*pass_off
             self.expected = loc_pass_value.sum() 
-            self.triangle_metrics = [self.x[-1] + dr * np.cos(self.phi), self.y[-1] - dr * np.sin(self.phi),self.x[-1] - dr * np.cos(self.phi), self.y[-1] + dr * np.sin(self.phi), self.prob, self.best_case, self.expected]
+            self.triangle_metrics = [self.x[-1] + dr * np.cos(self.phi), self.y[-1] - dr * np.sin(self.phi),self.x[-1] - dr * np.cos(self.phi), self.y[-1] + dr * np.sin(self.phi), self.prob, self.best_case, self.expected, self.phi]
 
 
         def __call__(self):   
@@ -178,48 +178,52 @@ class tracks():
 
 #Robyn - added metrics which uses tracks to calculate various metrics used in modelling
 class metrics(tracks):
+    #don't know how to initialize properly in python yet so this is my quick fix
+    #ideally all these will move to within tracks once we know which we want to keep
+    def add_self(self):
+        self.xgrid = self.grid[:,0]
+        self.ygrid = self.grid[:,1]
+        self.rcgrid = self.grid[:,3]
+        self.locvalgrid = self.grid[:,4]
+        self.successtriangle = self.triangles[:,4]
+        self.besttriangle = self.triangles[:,5]
+        self.exptriangle = self.triangles[:,6]
+        self.angs = self.triangles[:,7]
+
     def home_plate(self):
-        y_upper = np.where(self.grid[:,0] <= 31, 35.05+0.95*self.grid[:,0], 64.5)
-        y_lower = np.where(self.grid[:,0] <= 31, 49.95-0.95*self.grid[:,0], 20.5)
-        square = (self.grid[:,0]<=46) * (self.grid[:,0]>=11) * (self.grid[:,1]<=y_upper) * (self.grid[:,1]>=y_lower)
-        return self.grid[square,3].mean()
-
-    def control_of_rink(self):
-        return np.mean(self.grid[:,3])
-
-    def max_metrics(self,n):
-        return np.max(self.grid[:,n])
+        y_upper = np.where(self.xgrid <= 31, 35.05+0.95*self.xgrid, 64.5)
+        y_lower = np.where(self.xgrid <= 31, 49.95-0.95*self.xgrid, 20.5)
+        square = (self.xgrid<=46) * (self.xgrid>=11) * (self.ygrid<=y_upper) * (self.ygrid>=y_lower)
+        return self.rcgrid[square].mean() #self.grid[square,3].mean()
 
     def passer_location(self):
-        x_passer = self.xp+self.vx[self.puck]
-        y_passer = self.yp+self.vy[self.puck]
-        return self.grid[np.argmin((x_passer-self.grid[:,0])**2+(y_passer-self.grid[:,1])**2),4]
+        #use player motion, center of circle, to predict where they will be. 
+        #return location value at that point
+        x_passer = self.c_x[:,self.puck].mean()
+        y_passer = self.c_y[:,self.puck].mean()
+        return self.locvalgrid[((x_passer-self.xgrid)**2+(y_passer-self.ygrid)**2).argmin()]
 
-    def metrics_offense(self,measure='max'):
-        x_0 = np.delete(np.array(self.x)+self.vx,self.puck)
-        y_0 = np.delete(np.array(self.y)+self.vy,self.puck)
-        off_0 = np.delete(self.off,self.puck)
-        x_off = x_0[np.array(off_0)==1]
-        y_off = y_0[np.array(off_0)==1]
-        vals_at_players = np.empty((len(x_off),3))
-        i=0
-        for (xx,yy) in zip(x_off,y_off):
-            vals_at_players[i,:]=(self.grid[np.argmin((xx-self.grid[:,0])**2+(yy-self.grid[:,1])**2),5:])
-            i+=1
-        #row 0 = x, row 1 = y, col 1 = successful, col 2 = best, col 3 = expected
-        positions = pd.DataFrame([x_off[np.argmax(vals_at_players,axis=0)],y_off[np.argmax(vals_at_players,axis=0)]])
-        if measure=='max':
-            return (tuple(vals_at_players.max(axis=0)),tuple(positions[0]),tuple(positions[1]),tuple(positions[2]))
-        else:
-            return tuple(vals_at_players.mean(axis=0))
+    def metrics_offense(self):
+        #use player motion, center of circle, to predict where they will be. 
+        #delete player with puck when needed
+        x_center = self.c_x.mean(axis=0)
+        y_center = self.c_y.mean(axis=0)
+        #find angle between passer and each player
+        #adjust angles to be within -pi and pi
+        player_angs = np.pi/2+np.arctan2(np.delete(y_center,self.puck)-y_center[self.puck],np.delete(x_center,self.puck)-x_center[self.puck])
+        player_angs[player_angs>np.pi]-=2*np.pi
+        #find passing angles which are closest to each players angle and get metrics vals there
+        vals_at_players = [self.triangles[np.abs(player-self.angs).argmin(),4:7] for player in player_angs]
+        #return the x,y,success,best,exp for each player excluding the passer
+        return (np.delete(x_center,self.puck),np.delete(y_center,self.puck),vals_at_players)
         
-    def get_metrics(self):   
-        metrics_grid = (self.home_plate(),self.control_of_rink(),
-        self.max_metrics(5),self.max_metrics(6),self.max_metrics(7),
-        self.passer_location(), #is the passer in a shooting position with control
-        self.metrics_offense('max'), #is there an available pass for each of these options
-        self.metrics_offense('mean'))   #how good is the teams positioning
-        return np.array(metrics_grid[0:6]+metrics_grid[6][0][:]+metrics_grid[6][1][:]+metrics_grid[6][2][:]+metrics_grid[6][3][:]+metrics_grid[7][:])
+    def get_metrics(self): 
+        self.add_self()  
+        metrics_grid = (self.home_plate(),self.rcgrid.mean(),
+        self.triangles.max(axis=0)[4:],
+        self.passer_location(),
+        self.metrics_offense()) #look within self.metrics_offense() to find mean/max and which player has those if we want
+        return metrics_grid
 
 
         
@@ -235,7 +239,7 @@ if __name__ == '__main__':
     all_tracks = metrics(x,y,vx,vy,goalie,puck,off) #Robyn - changed tracks to metrics
     print(all_tracks.triangles.shape)
 
-#print(all_tracks.get_metrics())
+print(all_tracks.get_metrics())
 
     #Robyn - all_tracks.grid to get x,y,t,control,location value, successful, best case, expected
     #Robyn - all_tracks.get_metrics() will give you home_plate_control percent, rink control percent, max successful, max best case, max expected, 
