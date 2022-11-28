@@ -163,7 +163,7 @@ class tracks():
             #     self.score_prob()
             #     loc_pass_value = self.score*all_ctrl*pass_off
             #     self.metric = loc_pass_value.sum() * np.ones(self.x.shape)
-            dr = (self.x[-1]**2 + self.y[-1]**2)**0.5 * outer_self.phi_res/2
+            dr = ((self.x[-1]-outer_self.xp)**2 + (self.y[-1]-outer_self.yp)**2)**0.5 * outer_self.phi_res/2
             self.prob = pass_off.sum()
             self.score_prob()
             adj_pass_value = self.score*self.all_ctrl*adj_pass_off
