@@ -22,7 +22,7 @@ GOALIE_DIST = 8 # maximum reasonable distance for goalie to go away from goal
 GLX = 11 # Goalie X coord
 GLY = 42.5  # Goalie Y coord
 STICK = 5 # Stick length 
-TARGET_RADIUS = 27.5
+TARGET_RADIUS = 28
 
 @jit(nopython  = True)
 def inside_boards(x: np.ndarray,y: np.ndarray, t:np.ndarray,
@@ -63,8 +63,10 @@ class tracks():
         self.goalie = goalie
         # self.tracks = pd.DataFrame({'x':x,'y':y,'vx':vx,'vy':vy,'goalie':goalie,'off':off})
         self.player_motion()
-        self.grid = np.concatenate([self.one_pass(self, phi)() for phi in np.arange(-np.pi,np.pi+EPS, phi_res)], axis = 0)
-        # full_grid = [self.one_pass(self, phi)() for phi in np.arange(-np.pi,np.pi+EPS, phi_res)]
+        # self.grid = np.concatenate([self.one_pass(self, phi)() for phi in np.arange(-np.pi,np.pi+EPS, phi_res)], axis = 0)
+        full_grid = [self.one_pass(self, phi)() for phi in np.arange(-np.pi,np.pi+EPS, phi_res)]
+        self.grid = np.concatenate([fg['grid'] for fg in full_grid], axis = 0)
+        self.triangles = np.stack([fg['triangle'] for fg in full_grid], axis = 0)
 
     def player_motion(self, alpha: float = ALPHA, t_r: float = TR, vmax: float = MAX_VEL):
         t = np.arange(self.t_res,MAX_TIME, self.t_res).reshape(-1,1)
@@ -161,15 +163,18 @@ class tracks():
             #     self.score_prob()
             #     loc_pass_value = self.score*all_ctrl*pass_off
             #     self.metric = loc_pass_value.sum() * np.ones(self.x.shape)
-            self.prob = pass_off.sum()  * np.ones(self.x.shape)
+            dr = (self.x[-1]**2 + self.y[-1]**2)**0.5 * outer_self.phi_res/2
+            self.prob = pass_off.sum()
             self.score_prob()
             adj_pass_value = self.score*self.all_ctrl*adj_pass_off
-            self.best_case = adj_pass_value.max() * np.ones(self.x.shape)
+            self.best_case = adj_pass_value.max() 
             loc_pass_value = self.score*self.all_ctrl*pass_off
-            self.expected = loc_pass_value.sum() * np.ones(self.x.shape)
+            self.expected = loc_pass_value.sum() 
+            self.triangle_metrics = [self.x[-1] + dr * np.cos(self.phi), self.y[-1] - dr * np.sin(self.phi),self.x[-1] - dr * np.cos(self.phi), self.y[-1] + dr * np.sin(self.phi), self.prob, self.best_case, self.expected]
+
 
         def __call__(self):   
-            return np.stack((self.x,self.y,self.t,self.all_ctrl,self.score*self.all_ctrl,self.prob,self.best_case,self.expected),1)  #Robyn - added self.score*self.all_ctrl for location value of passer  
+            return {'grid': np.stack((self.x,self.y,self.t,self.all_ctrl,self.score*self.all_ctrl),1), 'triangle': self.triangle_metrics}  #Robyn - added self.score*self.all_ctrl for location value of passer  
 
 #Robyn - added metrics which uses tracks to calculate various metrics used in modelling
 class metrics(tracks):
@@ -228,6 +233,7 @@ if __name__ == '__main__':
     puck= 3
     off=list(np.array([-1, -1, 1, 1, -1, 1, -1, -1, 1]))
     all_tracks = metrics(x,y,vx,vy,goalie,puck,off) #Robyn - changed tracks to metrics
+    print(all_tracks.triangles.shape)
 
 #print(all_tracks.get_metrics())
 
