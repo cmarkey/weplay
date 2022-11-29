@@ -75,11 +75,13 @@ def ind_var_calculation(df, x_cols, y_cols, positions):
             player_raw_teams[:6].fill(0) #one is away
             player_raw_teams[6:].fill(1) #two is home
             player_role = df[positions].iloc[i]
-
+            
             #MST calculation
             #getting rid of goalies for calculation of all player MST
-            raw_all_coord_pairs = raw_coord_pairs[np.where(player_role[6:]== False)]
-            player_teams = player_raw_teams[np.where(player_role[6:]== False)]
+            print(np.where(player_role== False))
+            print(player_role)
+            raw_all_coord_pairs = raw_coord_pairs[np.where(player_role== False)]
+            player_teams = player_raw_teams[np.where(player_role== False)]
             all_coord_pairs = raw_all_coord_pairs[~np.isnan(raw_all_coord_pairs)]
             player_teams = player_teams[~(np.isnan(raw_all_coord_pairs)[:,0])]
             all_coord_pairs = all_coord_pairs.reshape(int(len(all_coord_pairs)/2),2)
@@ -91,8 +93,6 @@ def ind_var_calculation(df, x_cols, y_cols, positions):
             #variable calculations for 2 MSTs: one with with offensive players and one with defensive players
             if df['venue'].iloc[i] == 'home': #home team is the offensive team
                 #excluding goalie and empty coordinate spots
-                print(player_role[6:])
-                print(np.where(player_role[6:]== False))
                 raw_home_coord_pairs = raw_coord_pairs[6:][np.where(player_role[6:]== False)]
                 home_coord_pairs = raw_home_coord_pairs[~np.isnan(raw_home_coord_pairs)]
                 home_coord_pairs = home_coord_pairs.reshape(int(len(home_coord_pairs)/2),2)
@@ -107,10 +107,12 @@ def ind_var_calculation(df, x_cols, y_cols, positions):
                 df['D MST'].iloc[i],df['D_Avg_Edge'].iloc[i], df['D_Total_Edge'].iloc[i], df["D_Avg_Edges per Player"].iloc[i] = mst_properties(away_coord_pairs)
             elif df['venue'].iloc[i] == 'away': #away is offensive team
                 #leaving goalie in for defensive team because it matters to the model
+                print("Away D Players")
                 raw_home_coord_pairs = raw_coord_pairs[6:]#[np.where(player_role[6:]== False)]
                 home_coord_pairs = raw_home_coord_pairs[~np.isnan(raw_home_coord_pairs)]
                 home_coord_pairs = home_coord_pairs.reshape(int(len(home_coord_pairs)/2),2)
                 df['D Players'].iloc[i] = len(home_coord_pairs)
+                print(len(home_coord_pairs))
                 df['D MST'].iloc[i],df['D_Avg_Edge'].iloc[i], df['D_Total_Edge'].iloc[i], df["D_Avg_Edges per Player"].iloc[i] = mst_properties(home_coord_pairs)
 
                 #excluding goalie and empty coordinate spots
