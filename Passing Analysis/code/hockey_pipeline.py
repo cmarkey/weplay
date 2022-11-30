@@ -3,6 +3,8 @@ import pandas as pd
 from scipy.stats import norm
 from numba import jit
 from numpy.typing import ArrayLike
+from sklearn.ensemble import RandomForestRegressor #Robyn-not sure if this is needed or not since model is already trained
+import pickle #Robyn - to load in RF model
 
 MAX_TIME = 2
 EPS = 1e-7
@@ -240,7 +242,6 @@ if __name__ == '__main__':
     print(all_tracks.triangles.shape)
 
 print(all_tracks.get_metrics())
-
     #Robyn - all_tracks.grid to get x,y,t,control,location value, successful, best case, expected
     #Robyn - all_tracks.get_metrics() will give you home_plate_control percent, rink control percent, max successful, max best case, max expected, 
     #value at passer, 
@@ -248,50 +249,12 @@ print(all_tracks.get_metrics())
     #max expected at player locations and player location's x and y, mean successful, mean best case, mean expected
     
 
-    # Robyn - Code for getting metrics on training data
+#Robyn - load the model from git
 
-#     csv_df = pd.read_csv('all_powerplays_clean.csv')
-#     metrics_grid = np.empty((csv_df.shape[0],18))
-#     current_index = -1
-#     for data in csv_df.iterrows():
-#     current_index+=1
-#     # if current_index==24:
-#     #     data['away_x_5_velo']=0.05
-#         # data[1]['away_y_5_velo']=0.05
-#     x0 = data[1][125:137]
-#     to_remove = np.where(pd.isna(x0),1,0)
-#     x = list((np.array(x0))[np.array(to_remove)==0])
-#     y = list((np.array(data[1][137:149]))[np.array(to_remove)==0])
-#     vx_0 = np.where(pd.isna(data[1][149:161]),0.05,data[1][149:161])
-#     vx = list((np.array(vx_0))[np.array(to_remove)==0])
-#     vy_0 = np.where(pd.isna(data[1][161:173]),0.05,data[1][161:173])
-#     vy = list((np.array(vy_0))[np.array(to_remove)==0])
-#     off = list((np.array(data[1][173:185]))[np.array(to_remove)==0])
-#     puck = int(data[1][185])-1
-#     puck= puck-sum(to_remove[:puck])
-#     if pd.isna(data[1][186]): #goalie not in tracking data
-#         x = x+[12]
-#         y = y+[42.5]
-#         vx = vx+[0.01]
-#         vy = vy+[0.01]
-#         off = off+[-1]
-#         goalie = len(x)-1
-#     else:
-#         goalie = int(data[1][186])-1
-#         goalie= goalie-sum(to_remove[:goalie])
-#     # Puck is outside the offensive zone or not enough players tracked
-#     if x[puck]>105 or y[puck]>90 or off.count(-1)<2 or off.count(1)<2 or current_index in (391,392):
-#         metrics_grid[current_index,:] = np.repeat(np.nan,18)
-#     else:
-#         # Small adjustment if puck is just outside, to account for tracking uncertainty
-#         if x[puck]>99:
-#         x[puck]=99
-#     if x[puck]<1:
-#       x[puck]+=1
-#     if y[puck]<1:
-#       y[puck]+=1
-#     if y[puck]>84:
-#       y[puck]=84
-#     all_tracks = metrics(x,y,vx,vy,goalie,puck,off)
-#     metrics_grid[current_index,:] = all_tracks.get_metrics()
-#   print(current_index)
+#requires data x in the format
+#vars = ['distance_to_net', 'goal_diff', 'woman_adv', 'All_OCR', 'Max_Success', 'Home_Plate_Control', 'Mean_Player_Best', 
+#'Max_Player_Best', 'angle_to_attacking_net','Mean_Player_Exp', 'on_ice_woman_diff']
+#x = data[vars]
+#all_metrics = all_tracks.get_metrics()
+# loaded_rf = pickle.load(open('finalized_rf_model.pkl', 'rb'))
+# loaded_pred = loaded_rf.predict(x)
