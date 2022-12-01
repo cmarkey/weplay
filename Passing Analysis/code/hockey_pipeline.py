@@ -229,7 +229,7 @@ class metrics(pass_tracks):
                  vp: float = 55,
                  phi_res: float = 0.01,
                  t_res: float = 0.01,
-                 rf=LOADED_RF
+                 #  rf=LOADED_RF
                  # metric: str = 'expected'
                  ):
         super().__init__(x, y, vx, vy, goalie, puck, off, vp, t_res)
@@ -243,7 +243,7 @@ class metrics(pass_tracks):
         # self.exptriangle = self.triangles[:,6]
         # self.angs = self.triangles[:,7]
         self.get_metrics()
-        self.danger_level = rf.predict(self.metrics_grid)
+        # self.danger_level = rf.predict(self.metrics_grid)
 
     def home_plate(self):
         y_upper = np.where(self.xgrid <= 31, 35.05+0.95*self.xgrid, 64.5)
