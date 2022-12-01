@@ -33,7 +33,6 @@ TARGET_RADIUS = 28
 LOADED_RF = joblib.load('loaded_rf.joblib')
 
 
-@jit(nopython=True)
 def inside_boards(x: np.ndarray, y: np.ndarray, t: np.ndarray,
                   target_radius: float = TARGET_RADIUS):
     radius = (x < 28) * ((y > 57)*((x-28)**2 + (y-57)**2) **
