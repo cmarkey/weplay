@@ -5,6 +5,8 @@ from numba import jit
 from numpy.typing import ArrayLike
 from sklearn.ensemble import RandomForestRegressor #Robyn-not sure if this is needed or not since model is already trained
 import pickle #Robyn - to load in RF model
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import minimum_spanning_tree
 
 MAX_TIME = 2
 EPS = 1e-7
@@ -224,10 +226,83 @@ class metrics(tracks):
         metrics_grid = (self.home_plate(),self.rcgrid.mean(),
         self.triangles.max(axis=0)[4:],
         self.passer_location(),
-        self.metrics_offense()) #look within self.metrics_offense() to find mean/max and which player has those if we want
+        self.metrics_offense(),
+        self.ind_var_calculation()) #look within self.metrics_offense() to find mean/max and which player has those if we want
         return metrics_grid
+    
+    def mst_properties(self, player_positions, player_teams=None):
+        no_players = len(self.x) #number of players
+        player_positions = self.
+        #MST calculation
+        p2p_distances = np.empty(shape=(no_players, no_players))
+        coordinates = player_positions.T
+        for i in range(no_players):
+            p2p_distances[i] = np.sqrt((coordinates[0]-player_positions[i][0])**2 + (coordinates[1]-player_positions[i][1])**2)
+        tree = minimum_spanning_tree(csr_matrix(p2p_distances)).toarray()
 
+        #avg edge length and total edge length
+        avg_edge_length = np.mean(tree[~(tree == 0)])
+        tot_edge_length = np.sum(tree[~(tree == 0)])
+        plotted = np.argwhere(tree > 0)
 
+        #counting the number of edges each player has and taking the average of that array ot get avg_edges_per_player
+        edge_player_connections = []
+        for i in plotted:
+            j,k = i
+            edge_player_connections.append(j)
+            edge_player_connections.append(k)
+        unique_vals, edge_player_connections = np.unique(np.array(edge_player_connections),return_counts=True)
+        avg_edges_per_player = np.mean(edge_player_connections)
+
+        #opponent connection ratio calculation: assign each MST edge a 0 (teamate to teamate connection) or a 1 (opponent to opponent connection) and take the mean of the assigned MST values
+        #closer to 1 means more people are paired up with opponents and closer to 0 means paired up with teamates
+        if player_teams is not None:
+            pairing_list = []
+            for i in plotted:
+                j,k = i
+                if player_teams[j] == player_teams[k]:
+                    pairing_list.append(0)
+                else:
+                    pairing_list.append(1)
+            opponent_connection_ratio = np.mean(np.array(pairing_list))
+            return avg_edge_length, avg_edges_per_player, opponent_connection_ratio
+        else:
+            return avg_edge_length, avg_edges_per_player
+        
+    def ind_var_calculation(self):
+        #MST variable calculations
+        #MST variable calculations
+        x_coords = self.x
+        y_coords = self.y
+        #for 5 on 4 events  where we have tracking data proceed with MST calculations
+
+        offense = np.array(self.off)
+        off_team_strength = len(offense[offense==1]) 
+        def_team_strength = len(offense[offense==-1])
+        #getting coordinates, positions, and respective teams (last one if for OCR calculation) for event
+        raw_coord_pairs = np.array([x_coords,y_coords]).T
+
+        #MST calculation
+        #getting rid of goalies for calculation of all player MST
+        all_coord_pairs = np.delete(raw_coord_pairs, goalie,axis=0)
+        player_teams = np.delete(offense, goalie,axis=0)
+        #variable calculations for MST properties with all players
+        all_avg_edge, all_avg_edges_per_player, all_ocr = mst_properties(all_coord_pairs, player_teams)
+
+        off_no_goalie = np.delete(offense, goalie,axis=0)
+        #excluding goalie and empty coordinate spots
+        home_coord_pairs = all_coord_pairs[np.where(off_no_goalie==1)]
+        off_avg_edge, off_avg_edges_per_player = mst_properties(home_coord_pairs)
+
+        #leaving goalie in for defensive team because it matters to the model
+        #get defensive players
+        #if goalie is a defensive 
+        away_coord_pairs = raw_coord_pairs[np.where(offense==-1)]
+        def_avg_edge, def_avg_edges_per_player = mst_properties(away_coord_pairs)
+
+        #calculating MST ratio betweeen offensive and defense average edge length
+        od_MST_ratio = off_avg_edge/def_avg_edge
+        return all_avg_edge, all_avg_edges_per_player, all_ocr, off_avg_edge, off_avg_edges_per_player, def_avg_edge, def_avg_edges_per_player
         
 
 if __name__ == '__main__':
@@ -235,7 +310,7 @@ if __name__ == '__main__':
     y= list(np.array([49.31514, 48.25991, 70.17542, 13.65429, 28.51970, 38.44596, 36.80571, 38.32781, 22.03946]))
     vx=list(np.array([6.725073,  4.964445, -3.097599, 14.252625,  4.286796,  1.925091, -2.295729, -0.294258,  6.464229]))
     vy=list(np.array([-7.1037417,  -7.9677960,  -6.4446342,   6.5618985, -10.9455216,  -4.7444208,  -4.1465373,  -0.3377985, -5.4265284]))
-    goalie = 7
+    goalie = 7 #zero-indexed
     puck= 3
     off=list(np.array([-1, -1, 1, 1, -1, 1, -1, -1, 1]))
     all_tracks = metrics(x,y,vx,vy,goalie,puck,off) #Robyn - changed tracks to metrics
