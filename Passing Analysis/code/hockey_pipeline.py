@@ -238,7 +238,7 @@ class metrics(pass_tracks):
                  rf=LOADED_RF
                  # metric: str = 'expected'
                  ):
-        super().__init__(x, y, vx, vy, goalie, puck, off, vp, t_res)
+        super().__init__(x, y, vx, vy, goalie, puck, off, vp, phi_res, t_res)
 
         self.xgrid = self.grid[:, 0]
         self.ygrid = self.grid[:, 1]
