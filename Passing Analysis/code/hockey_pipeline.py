@@ -174,7 +174,7 @@ class tracks():
             self.best_case = adj_pass_value.max() 
             loc_pass_value = self.score*self.all_ctrl*pass_off
             self.expected = loc_pass_value.sum() 
-            self.triangle_metrics = [self.x[-1] + dr * np.cos(self.phi), self.y[-1] - dr * np.sin(self.phi),self.x[-1] - dr * np.cos(self.phi), self.y[-1] + dr * np.sin(self.phi), self.prob, self.best_case, self.expected, self.phi]
+            self.triangle_metrics = [self.x[-1] + dr * np.cos(self.phi), self.y[-1] + dr * np.sin(self.phi),self.x[-1] - dr * np.cos(self.phi), self.y[-1] - dr * np.sin(self.phi), self.prob, self.best_case, self.expected, self.phi]
 
 
         def __call__(self):   
