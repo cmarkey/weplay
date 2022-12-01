@@ -31,8 +31,11 @@ GLX = 11  # Goalie X coord
 GLY = 42.5  # Goalie Y coord
 STICK = 5  # Stick length
 TARGET_RADIUS = 28
-LOADED_RF = joblib.load(urlopen(
-    'https://github.com/cmarkey/weplay/raw/main/Passing%20Analysis/code/loaded_rf.joblib'))
+print("about to load file")
+a = urlopen(
+    'https://github.com/cmarkey/weplay/raw/main/Passing%20Analysis/code/loaded_rf.joblib')
+print('loaded file')
+LOADED_RF = joblib.load(a)
 
 
 def test():
