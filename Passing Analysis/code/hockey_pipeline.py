@@ -30,7 +30,11 @@ GLX = 11  # Goalie X coord
 GLY = 42.5  # Goalie Y coord
 STICK = 5  # Stick length
 TARGET_RADIUS = 28
-LOADED_RF = joblib.load('loaded_rf.joblib')
+# LOADED_RF = joblib.load('loaded_rf.joblib')
+
+
+def test():
+    print(1+2)
 
 
 def inside_boards(x: np.ndarray, y: np.ndarray, t: np.ndarray,
