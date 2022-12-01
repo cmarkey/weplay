@@ -1,4 +1,4 @@
-from urllib.request import urlopen
+import requests
 import joblib
 import numpy as np
 # import pandas as pd
@@ -32,10 +32,10 @@ GLY = 42.5  # Goalie Y coord
 STICK = 5  # Stick length
 TARGET_RADIUS = 28
 print("about to load file")
-a = urlopen(
+a = requests.get(
     'https://github.com/cmarkey/weplay/raw/main/Passing%20Analysis/code/loaded_rf.joblib')
 print('loaded file')
-LOADED_RF = joblib.load(a)
+LOADED_RF = joblib.load(a.raw())
 
 
 def test():
