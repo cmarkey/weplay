@@ -224,9 +224,9 @@ class metrics(tracks):
     def get_metrics(self): 
         self.add_self()  
         metrics_grid = (self.home_plate(),self.rcgrid.mean(),
-        self.triangles.max(axis=0)[4:],
-        self.passer_location(),
-        self.metrics_offense(),
+        #self.triangles.max(axis=0)[4:],
+        #self.passer_location(),
+        #self.metrics_offense(),
         self.ind_var_calculation()) #look within self.metrics_offense() to find mean/max and which player has those if we want
         return metrics_grid
     
