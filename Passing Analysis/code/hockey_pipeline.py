@@ -243,13 +243,13 @@ class metrics(pass_tracks):
         self.xgrid = self.grid[:, 0]
         self.ygrid = self.grid[:, 1]
         self.rcgrid = self.grid[:, 3]
-        # self.locvalgrid = self.grid[:,4]
-        # self.successtriangle = self.triangles[:,4]
-        # self.besttriangle = self.triangles[:,5]
-        # self.exptriangle = self.triangles[:,6]
-        # self.angs = self.triangles[:,7]
+        self.scoreprob = self.grid[:,4]
+        self.successtriangle = self.triangles[:,4]
+        self.besttriangle = self.triangles[:,5]
+        self.exptriangle = self.triangles[:,6]
+        self.angs = self.triangles[:,7]
         self.get_metrics()
-        self.danger_level = rf.predict(self.metrics_grid)
+        #self.danger_level = rf.predict(self.metrics_grid)
 
     def home_plate(self):
         y_upper = np.where(self.xgrid <= 31, 35.05+0.95*self.xgrid, 64.5)
@@ -258,41 +258,45 @@ class metrics(pass_tracks):
             (self.ygrid <= y_upper) * (self.ygrid >= y_lower)
         return self.rcgrid[square].mean()  # self.grid[square,3].mean()
 
-    # def passer_location(self):
-    #     #use player motion, center of circle, to predict where they will be.
-    #     #return location value at that point
-    #     x_passer = self.c_x[:,self.puck].mean()
-    #     y_passer = self.c_y[:,self.puck].mean()
-    #     return self.locvalgrid[((x_passer-self.xgrid)**2+(y_passer-self.ygrid)**2).argmin()]
+    def passer_location(self,player_x,player_y):
+        #use player motion, center of circle, to predict where they will be.
+        #return location value at that point
+        vals_at_players = np.array([self.scoreprob[((px-self.xgrid)**2+(py-self.ygrid)**2).argmin()] for (px,py) in zip(player_x,player_y)])
+        sorted_array = np.sort(vals_at_players)[::-1]
+        self.order = [np.where(val==vals_at_players)[0][0] for val in sorted_array]
+        return sorted_array
 
-    # def metrics_offense(self):
-    #     #use player motion, center of circle, to predict where they will be.
-    #     #delete player with puck when needed
-    #     x_center = self.c_x.mean(axis=0)
-    #     y_center = self.c_y.mean(axis=0)
-    #     #find angle between passer and each player
-    #     #adjust angles to be within -pi and pi
-    #     player_angs = np.pi/2+np.arctan2(np.delete(y_center,self.puck)-y_center[self.puck],np.delete(x_center,self.puck)-x_center[self.puck])
-    #     player_angs[player_angs>np.pi]-=2*np.pi
-    #     #find passing angles which are closest to each players angle and get metrics vals there
-    #     vals_at_players = [self.triangles[np.abs(player-self.angs).argmin(),4:7] for player in player_angs]
-    #     #return the x,y,success,best,exp for each player excluding the passer
-    #     return (np.delete(x_center,self.puck),np.delete(y_center,self.puck),vals_at_players)
+    def metrics_offense(self):
+        #use player motion, center of circle, to predict where they will be.
+        #delete player with puck when needed
+        x_center = np.delete(self.x,self.puck)
+        y_center = np.delete(self.y,self.puck)
+        #find angle between passer and each player
+        #adjust angles to be within -pi and pi
+        player_angs = np.pi/2+np.arctan2(y_center-self.y[self.puck],x_center-self.x[self.puck])
+        player_angs[player_angs>np.pi]-=2*np.pi
+        #find passing angles which are closest to each players angle and get metrics vals there
+        vals_at_players = [self.triangles[np.abs(player-self.angs).argmin(),6] for player in player_angs]
+        #return the x,y,success,best,exp for each player excluding the passer
+        vals_at_players.insert(self.puck,0)
+        vals_at_players_array = np.array(vals_at_players).flatten()
+        return vals_at_players_array
 
     def get_metrics(self):
-        y_2_goal = self.yp-GLY
-        x_2_goal = self.xp-GLX
-        self.metrics_grid = np.array([((x_2_goal)**2+(y_2_goal)**2)**0.5,
-                                      self.rcgrid.mean(),
-                                      self.ind_var_calculation(),
-                                      self.home_plate(),
-                                      np.arctan2(
-                                          y_2_goal, x_2_goal) * 180 / np.pi,
-                                      self.off.sum()+1
-                                      ]).reshape(1, -1)
-        # self.triangles.max(axis=0)[4:],
-        # self.passer_location(),
-        # self.metrics_offense(),
+        play_locs = self.passer_location(self.x[np.array(self.off)==1],self.y[np.array(self.off)==1])
+        player_mets = self.metrics_offense()
+        player_mets_fixed = player_mets.reshape(int(len(player_mets)),1)[np.array(self.off)==1]
+        player_mets_order = np.vstack(player_mets_fixed[i] for i in self.order)
+        player_mets_no_puck = player_mets_order[~np.all(player_mets_order == 0, axis=1)]
+        player_test = player_mets_no_puck.flatten()
+        self.metrics_grid = np.array([self.triangles.max(axis=0)[4:7],
+                                     self.home_plate(),
+                                     self.off.sum()+1,
+                                     self.ind_var_calculation(),
+                                     np.pad(play_locs, (0, 6-len(play_locs)), 'constant'),
+                                     np.pad(player_test, (0, 6-len(player_test)), 'constant')
+                                    ]).reshape(1, -1)
+                                      #self.ind_var_calculation(),
         # look within self.metrics_offense() to find mean/max and which player has those if we want
 
     def mst_properties(self, player_positions, player_teams=None):
@@ -334,6 +338,7 @@ class metrics(pass_tracks):
         # MST variable calculations
         x_coords = self.x
         y_coords = self.y
+        goalie = self.goalie
         # for 5 on 4 events  where we have tracking data proceed with MST calculations
 
         offense = np.array(self.off)
@@ -350,19 +355,20 @@ class metrics(pass_tracks):
         all_avg_edge, all_avg_edges_per_player, all_ocr = self.mst_properties(
             all_coord_pairs, player_teams)
 
-        #off_no_goalie = np.delete(offense, goalie,axis=0)
+        off_no_goalie = np.delete(offense, goalie,axis=0)
         # excluding goalie and empty coordinate spots
-        #home_coord_pairs = all_coord_pairs[np.where(off_no_goalie==1)]
-        #off_avg_edge, off_avg_edges_per_player = self.mst_properties(home_coord_pairs)
+        home_coord_pairs = all_coord_pairs[np.where(off_no_goalie==1)]
+        off_avg_edge, off_avg_edges_per_player = self.mst_properties(home_coord_pairs)
 
         # leaving goalie in for defensive team because it matters to the model
-        #away_coord_pairs = raw_coord_pairs[np.where(offense==-1)]
-        #def_avg_edge, def_avg_edges_per_player = self.mst_properties(away_coord_pairs)
+        away_coord_pairs = raw_coord_pairs[np.where(offense==-1)]
+        def_avg_edge, def_avg_edges_per_player = self.mst_properties(away_coord_pairs)
 
         # calculating MST ratio betweeen offensive and defense average edge length
-        #od_MST_ratio = off_avg_edge/def_avg_edge
-        return all_ocr  # ,all_avg_edge, all_avg_edges_per_player,  off_avg_edge, off_avg_edges_per_player, def_avg_edge, def_avg_edges_per_player
+        od_MST_ratio = off_avg_edge/def_avg_edge
+        return od_MST_ratio,all_ocr,off_avg_edge,def_avg_edge  # ,all_avg_edge, all_avg_edges_per_player,  off_avg_edge, off_avg_edges_per_player, def_avg_edge, def_avg_edges_per_player
 
+#"OD_MST_Ratio","All_OCR","O_Avg_Edge","D_Avg_Edge"
 
 if __name__ == '__main__':
     x = list(200 - np.array([171.4262, 155.6585, 153.7146,
