@@ -30,9 +30,14 @@ GLX = 11  # Goalie X coord
 GLY = 42.5  # Goalie Y coord
 STICK = 5  # Stick length
 TARGET_RADIUS = 28
+FEATURE_NAMES = ['Max_Success', 'Max_Best', 'Max_Exp', 'Home_Plate_Control',
+                 'Woman_Adv','OD_MST_Ratio', 'All_OCR', 'O_Avg_Edge', 'D_Avg_Edge',
+                 'ScoreProb_p1', 'ScoreProb_p2','ScoreProb_p3','ScoreProb_p4','ScoreProb_p5','ScoreProb_p6',
+                 'Exp_p1', 'Exp_p2', 'Exp_p3', 'Exp_p4', 'Exp_p5', 'Exp_p6'
+                ]
 
 try:
-    with open('rf_1_1_1.pkl', 'rb') as f:
+    with open('finalized_rf_model.pkl', 'rb') as f:
         LOADED_RF = pickle.load(f)
 except Exception as error:
     print("error")
@@ -249,7 +254,8 @@ class metrics(pass_tracks):
         self.exptriangle = self.triangles[:,6]
         self.angs = self.triangles[:,7]
         self.get_metrics()
-        #self.danger_level = rf.predict(self.metrics_grid)
+        # self.metrics_grid = pd.DataFrame(data = self.metrics_grid, columns= FEATURE_NAMES)
+        self.danger_level = rf.predict(self.metrics_grid)
 
     def home_plate(self):
         y_upper = np.where(self.xgrid <= 31, 35.05+0.95*self.xgrid, 64.5)
@@ -283,18 +289,19 @@ class metrics(pass_tracks):
         return vals_at_players_array
 
     def get_metrics(self):
-        play_locs = self.passer_location(self.x[np.array(self.off)==1],self.y[np.array(self.off)==1])
+        play_locs = self.passer_location(self.x[self.off==1],self.y[self.off==1])
         player_mets = self.metrics_offense()
-        player_mets_fixed = player_mets.reshape(int(len(player_mets)),1)[np.array(self.off)==1]
-        player_mets_order = np.vstack(player_mets_fixed[i] for i in self.order)
+        player_mets_fixed = player_mets.reshape(-1,1)[self.off==1]
+        # player_mets_order = np.vstack([player_mets_fixed[i] for i in self.order])
+        player_mets_order  = player_mets_fixed[self.order]
         player_mets_no_puck = player_mets_order[~np.all(player_mets_order == 0, axis=1)]
         player_test = player_mets_no_puck.flatten()
-        self.metrics_grid = np.array([self.triangles.max(axis=0)[4:7],
+        self.metrics_grid = np.array([*self.triangles.max(axis=0)[4:7],
                                      self.home_plate(),
                                      self.off.sum()+1,
-                                     self.ind_var_calculation(),
-                                     np.pad(play_locs, (0, 6-len(play_locs)), 'constant'),
-                                     np.pad(player_test, (0, 6-len(player_test)), 'constant')
+                                     *self.ind_var_calculation(),
+                                     *np.pad(play_locs, (0, 6-len(play_locs)), 'constant'),
+                                     *np.pad(player_test, (0, 6-len(player_test)), 'constant')
                                     ]).reshape(1, -1)
                                       #self.ind_var_calculation(),
         # look within self.metrics_offense() to find mean/max and which player has those if we want
@@ -333,7 +340,7 @@ class metrics(pass_tracks):
         else:
             return avg_edge_length, avg_edges_per_player
 
-    def ind_var_calculation(self):
+    def ind_var_calculation(self, return_raw = False):
         # MST variable calculations
         # MST variable calculations
         x_coords = self.x
@@ -366,8 +373,10 @@ class metrics(pass_tracks):
 
         # calculating MST ratio betweeen offensive and defense average edge length
         od_MST_ratio = off_avg_edge/def_avg_edge
-        return od_MST_ratio,all_ocr,off_avg_edge,def_avg_edge  # ,all_avg_edge, all_avg_edges_per_player,  off_avg_edge, off_avg_edges_per_player, def_avg_edge, def_avg_edges_per_player
-
+        if return_raw:
+            return od_MST_ratio,all_ocr,off_avg_edge,def_avg_edge  # ,all_avg_edge, all_avg_edges_per_player,  off_avg_edge, off_avg_edges_per_player, def_avg_edge, def_avg_edges_per_player
+        # print(od_MST_ratio,all_ocr,off_avg_edge,def_avg_edge)
+        return np.array([od_MST_ratio,all_ocr,off_avg_edge,def_avg_edge])
 #"OD_MST_Ratio","All_OCR","O_Avg_Edge","D_Avg_Edge"
 
 if __name__ == '__main__':
